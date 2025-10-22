@@ -127,6 +127,19 @@ const initDatabase = async () => {
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
 
+      -- Stats Section Configuration Table
+      CREATE TABLE IF NOT EXISTS stats_section_config (
+        id SERIAL PRIMARY KEY,
+        section_description TEXT,
+        team_label TEXT,
+        main_image_url TEXT,
+        building_dreams_text VARCHAR(255),
+        contact_button_text VARCHAR(255),
+        special_offer_label VARCHAR(255),
+        consultation_text TEXT,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+
       -- Content Sections Table
       CREATE TABLE IF NOT EXISTS content_sections (
         id SERIAL PRIMARY KEY,
@@ -173,6 +186,29 @@ const initDatabase = async () => {
     `);
 
     console.log('✓ Default stats inserted');
+
+    // Insert default stats section configuration
+    await pool.query(`
+      INSERT INTO stats_section_config (
+        section_description, 
+        team_label, 
+        building_dreams_text, 
+        contact_button_text,
+        special_offer_label,
+        consultation_text
+      )
+      VALUES ($1, $2, $3, $4, $5, $6)
+      ON CONFLICT DO NOTHING
+    `, [
+      'At Golden Gate Properties, we offer more than just real estate services; we provide an unparalleled experience tailored to meet your needs and exceed your expectations.',
+      'Meet Our\nProfessional Team',
+      'Building Your Dreams',
+      'Contact Us Now',
+      'Special Offer',
+      'Get The Consultation\nWith Our Expert'
+    ]);
+
+    console.log('✓ Default stats section config inserted');
 
     // Insert sample property types
     const propertyTypes = [

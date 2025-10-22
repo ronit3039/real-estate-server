@@ -1,6 +1,7 @@
 const express = require('express');
 const pool = require('../config/database');
 const authMiddleware = require('../middleware/auth');
+const { upload, deleteFile, getFilePathFromUrl } = require('../middleware/upload');
 
 const router = express.Router();
 
@@ -80,6 +81,21 @@ router.get('/:id', async (req, res) => {
   }
 });
 
+// Upload property images
+router.post('/upload-images', authMiddleware, upload.array('images', 10), async (req, res) => {
+  try {
+    if (!req.files || req.files.length === 0) {
+      return res.status(400).json({ error: 'No files uploaded' });
+    }
+
+    const imageUrls = req.files.map(file => `/uploads/properties/${file.filename}`);
+    res.json({ imageUrls });
+  } catch (error) {
+    console.error('Upload images error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 // Create property (protected)
 router.post('/', authMiddleware, async (req, res) => {
   try {
@@ -106,7 +122,8 @@ router.post('/', authMiddleware, async (req, res) => {
       title, type, category, location, price, price_numeric,
       installment_years, installment_text, initial_payment,
       completion_date, description, features, bedrooms, bathrooms,
-      area_sqft, status || 'available', is_featured || false, image_urls || []
+      area_sqft, status || 'available', is_featured || false, 
+      image_urls ? (Array.isArray(image_urls) ? image_urls : JSON.parse(image_urls)) : []
     ]);
 
     res.status(201).json(result.rows[0]);
@@ -154,7 +171,9 @@ router.put('/:id', authMiddleware, async (req, res) => {
       title, type, category, location, price, price_numeric,
       installment_years, installment_text, initial_payment,
       completion_date, description, features, bedrooms, bathrooms,
-      area_sqft, status, is_featured, image_urls, id
+      area_sqft, status, is_featured, 
+      image_urls ? (Array.isArray(image_urls) ? image_urls : JSON.parse(image_urls)) : null,
+      id
     ]);
 
     if (result.rows.length === 0) {
@@ -168,15 +187,66 @@ router.put('/:id', authMiddleware, async (req, res) => {
   }
 });
 
+// Delete property image
+router.delete('/:id/images', authMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { imageUrl } = req.body;
+
+    if (!imageUrl) {
+      return res.status(400).json({ error: 'Image URL is required' });
+    }
+
+    // Get current property
+    const property = await pool.query('SELECT image_urls FROM properties WHERE id = $1', [id]);
+    
+    if (property.rows.length === 0) {
+      return res.status(404).json({ error: 'Property not found' });
+    }
+
+    // Remove image URL from array
+    let imageUrls = property.rows[0].image_urls || [];
+    imageUrls = imageUrls.filter(url => url !== imageUrl);
+
+    // Update database
+    await pool.query('UPDATE properties SET image_urls = $1 WHERE id = $2', [imageUrls, id]);
+
+    // Delete physical file
+    const filePath = getFilePathFromUrl(imageUrl);
+    if (filePath) {
+      deleteFile(filePath);
+    }
+
+    res.json({ message: 'Image deleted successfully' });
+  } catch (error) {
+    console.error('Delete property image error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 // Delete property (protected)
 router.delete('/:id', authMiddleware, async (req, res) => {
   try {
     const { id } = req.params;
-    const result = await pool.query('DELETE FROM properties WHERE id = $1 RETURNING id', [id]);
-
-    if (result.rows.length === 0) {
+    
+    // Get property to delete associated images
+    const property = await pool.query('SELECT image_urls FROM properties WHERE id = $1', [id]);
+    
+    if (property.rows.length === 0) {
       return res.status(404).json({ error: 'Property not found' });
     }
+
+    // Delete all associated images
+    const imageUrls = property.rows[0].image_urls || [];
+    imageUrls.forEach(url => {
+      const filePath = getFilePathFromUrl(url);
+      if (filePath) {
+        deleteFile(filePath);
+      }
+    });
+
+    // Delete from database
+    await pool.query('DELETE FROM properties WHERE id = $1', [id]);
 
     res.json({ message: 'Property deleted successfully' });
   } catch (error) {
@@ -186,4 +256,3 @@ router.delete('/:id', authMiddleware, async (req, res) => {
 });
 
 module.exports = router;
-

@@ -1,6 +1,7 @@
 const express = require('express');
 const pool = require('../config/database');
 const authMiddleware = require('../middleware/auth');
+const { upload, deleteFile, getFilePathFromUrl } = require('../middleware/upload');
 
 const router = express.Router();
 
@@ -15,6 +16,21 @@ router.get('/', async (req, res) => {
     res.json(result.rows);
   } catch (error) {
     console.error('Get partners error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Upload partner logo
+router.post('/upload-logo', authMiddleware, upload.single('logo'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+
+    const logoUrl = `/uploads/partners/${req.file.filename}`;
+    res.json({ logoUrl });
+  } catch (error) {
+    console.error('Upload logo error:', error);
     res.status(500).json({ error: 'Server error' });
   }
 });
@@ -47,6 +63,17 @@ router.put('/:id', authMiddleware, async (req, res) => {
     const { id } = req.params;
     const { name, subtitle, logo_url, website_url, description, display_order, is_active } = req.body;
 
+    // If logo is being updated, delete old logo
+    if (logo_url) {
+      const oldPartner = await pool.query('SELECT logo_url FROM partners WHERE id = $1', [id]);
+      if (oldPartner.rows.length > 0 && oldPartner.rows[0].logo_url) {
+        const oldLogoPath = getFilePathFromUrl(oldPartner.rows[0].logo_url);
+        if (oldLogoPath && oldPartner.rows[0].logo_url !== logo_url) {
+          deleteFile(oldLogoPath);
+        }
+      }
+    }
+
     const result = await pool.query(`
       UPDATE partners SET
         name = COALESCE($1, name),
@@ -76,11 +103,24 @@ router.put('/:id', authMiddleware, async (req, res) => {
 router.delete('/:id', authMiddleware, async (req, res) => {
   try {
     const { id } = req.params;
-    const result = await pool.query('DELETE FROM partners WHERE id = $1 RETURNING id', [id]);
-
-    if (result.rows.length === 0) {
+    
+    // Get partner to delete associated logo
+    const partner = await pool.query('SELECT logo_url FROM partners WHERE id = $1', [id]);
+    
+    if (partner.rows.length === 0) {
       return res.status(404).json({ error: 'Partner not found' });
     }
+
+    // Delete associated logo
+    if (partner.rows[0].logo_url) {
+      const filePath = getFilePathFromUrl(partner.rows[0].logo_url);
+      if (filePath) {
+        deleteFile(filePath);
+      }
+    }
+
+    // Delete from database
+    await pool.query('DELETE FROM partners WHERE id = $1', [id]);
 
     res.json({ message: 'Partner deleted successfully' });
   } catch (error) {
@@ -90,4 +130,3 @@ router.delete('/:id', authMiddleware, async (req, res) => {
 });
 
 module.exports = router;
-

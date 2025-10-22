@@ -1,6 +1,7 @@
 const express = require('express');
 const pool = require('../config/database');
 const authMiddleware = require('../middleware/auth');
+const { upload, deleteFile, getFilePathFromUrl } = require('../middleware/upload');
 
 const router = express.Router();
 
@@ -38,11 +39,37 @@ router.get('/:key', async (req, res) => {
   }
 });
 
+// Upload content image
+router.post('/upload-image', authMiddleware, upload.single('image'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+
+    const imageUrl = `/uploads/content/${req.file.filename}`;
+    res.json({ imageUrl });
+  } catch (error) {
+    console.error('Upload image error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 // Update content section (protected)
 router.put('/:id', authMiddleware, async (req, res) => {
   try {
     const { id } = req.params;
     const { title, subtitle, description, image_url, button_text, button_url, metadata, is_active } = req.body;
+
+    // If image is being updated, delete old image
+    if (image_url) {
+      const oldContent = await pool.query('SELECT image_url FROM content_sections WHERE id = $1', [id]);
+      if (oldContent.rows.length > 0 && oldContent.rows[0].image_url) {
+        const oldImagePath = getFilePathFromUrl(oldContent.rows[0].image_url);
+        if (oldImagePath && oldContent.rows[0].image_url !== image_url) {
+          deleteFile(oldImagePath);
+        }
+      }
+    }
 
     const result = await pool.query(`
       UPDATE content_sections SET
@@ -71,4 +98,3 @@ router.put('/:id', authMiddleware, async (req, res) => {
 });
 
 module.exports = router;
-

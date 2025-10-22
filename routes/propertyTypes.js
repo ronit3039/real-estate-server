@@ -1,6 +1,7 @@
 const express = require('express');
 const pool = require('../config/database');
 const authMiddleware = require('../middleware/auth');
+const { upload, deleteFile, getFilePathFromUrl } = require('../middleware/upload');
 
 const router = express.Router();
 
@@ -15,6 +16,21 @@ router.get('/', async (req, res) => {
     res.json(result.rows);
   } catch (error) {
     console.error('Get property types error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Upload property type icon
+router.post('/upload-icon', authMiddleware, upload.single('icon'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+
+    const iconUrl = `/uploads/property-types/${req.file.filename}`;
+    res.json({ iconUrl });
+  } catch (error) {
+    console.error('Upload icon error:', error);
     res.status(500).json({ error: 'Server error' });
   }
 });
@@ -47,6 +63,17 @@ router.put('/:id', authMiddleware, async (req, res) => {
     const { id } = req.params;
     const { type_id, title, description, gradient, size, icon_url, display_order, is_active } = req.body;
 
+    // If icon is being updated, delete old icon
+    if (icon_url) {
+      const oldType = await pool.query('SELECT icon_url FROM property_types WHERE id = $1', [id]);
+      if (oldType.rows.length > 0 && oldType.rows[0].icon_url) {
+        const oldIconPath = getFilePathFromUrl(oldType.rows[0].icon_url);
+        if (oldIconPath && oldType.rows[0].icon_url !== icon_url) {
+          deleteFile(oldIconPath);
+        }
+      }
+    }
+
     const result = await pool.query(`
       UPDATE property_types SET
         type_id = COALESCE($1, type_id),
@@ -77,11 +104,24 @@ router.put('/:id', authMiddleware, async (req, res) => {
 router.delete('/:id', authMiddleware, async (req, res) => {
   try {
     const { id } = req.params;
-    const result = await pool.query('DELETE FROM property_types WHERE id = $1 RETURNING id', [id]);
-
-    if (result.rows.length === 0) {
+    
+    // Get property type to delete associated icon
+    const propertyType = await pool.query('SELECT icon_url FROM property_types WHERE id = $1', [id]);
+    
+    if (propertyType.rows.length === 0) {
       return res.status(404).json({ error: 'Property type not found' });
     }
+
+    // Delete associated icon
+    if (propertyType.rows[0].icon_url) {
+      const filePath = getFilePathFromUrl(propertyType.rows[0].icon_url);
+      if (filePath) {
+        deleteFile(filePath);
+      }
+    }
+
+    // Delete from database
+    await pool.query('DELETE FROM property_types WHERE id = $1', [id]);
 
     res.json({ message: 'Property type deleted successfully' });
   } catch (error) {
@@ -91,4 +131,3 @@ router.delete('/:id', authMiddleware, async (req, res) => {
 });
 
 module.exports = router;
-

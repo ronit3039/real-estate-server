@@ -13,19 +13,24 @@ const faqsRoutes = require('./routes/faqs');
 const leadsRoutes = require('./routes/leads');
 const statsRoutes = require('./routes/stats');
 const contentRoutes = require('./routes/content');
+const bannersRoutes = require('./routes/banners');
 
 const app = express();
 const PORT = process.env.PORT || 5001;
 
 // Middleware
-app.use(helmet());
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" },
+  contentSecurityPolicy: false, // Disable CSP to allow images from same origin
+}));
 app.use(compression());
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Static file serving for uploads
+// Static file serving for uploads (both with and without /api prefix)
 app.use('/uploads', express.static('uploads'));
+app.use('/api/uploads', express.static('uploads'));
 
 // Routes
 app.use('/api/auth', authRoutes);
@@ -37,6 +42,7 @@ app.use('/api/faqs', faqsRoutes);
 app.use('/api/leads', leadsRoutes);
 app.use('/api/stats', statsRoutes);
 app.use('/api/content', contentRoutes);
+app.use('/api/banners', bannersRoutes);
 
 // Health check
 app.get('/health', (req, res) => {

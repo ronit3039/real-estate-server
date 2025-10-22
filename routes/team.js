@@ -1,6 +1,7 @@
 const express = require('express');
 const pool = require('../config/database');
 const authMiddleware = require('../middleware/auth');
+const { upload, deleteFile, getFilePathFromUrl } = require('../middleware/upload');
 
 const router = express.Router();
 
@@ -15,6 +16,21 @@ router.get('/', async (req, res) => {
     res.json(result.rows);
   } catch (error) {
     console.error('Get team members error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Upload team member image
+router.post('/upload-image', authMiddleware, upload.single('image'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+
+    const imageUrl = `/uploads/team/${req.file.filename}`;
+    res.json({ imageUrl });
+  } catch (error) {
+    console.error('Upload image error:', error);
     res.status(500).json({ error: 'Server error' });
   }
 });
@@ -47,6 +63,17 @@ router.put('/:id', authMiddleware, async (req, res) => {
     const { id } = req.params;
     const { full_name, position, email, phone, bio, image_url, linkedin_url, display_order, is_active } = req.body;
 
+    // If image is being updated, delete old image
+    if (image_url) {
+      const oldMember = await pool.query('SELECT image_url FROM team_members WHERE id = $1', [id]);
+      if (oldMember.rows.length > 0 && oldMember.rows[0].image_url) {
+        const oldImagePath = getFilePathFromUrl(oldMember.rows[0].image_url);
+        if (oldImagePath && oldMember.rows[0].image_url !== image_url) {
+          deleteFile(oldImagePath);
+        }
+      }
+    }
+
     const result = await pool.query(`
       UPDATE team_members SET
         full_name = COALESCE($1, full_name),
@@ -78,11 +105,24 @@ router.put('/:id', authMiddleware, async (req, res) => {
 router.delete('/:id', authMiddleware, async (req, res) => {
   try {
     const { id } = req.params;
-    const result = await pool.query('DELETE FROM team_members WHERE id = $1 RETURNING id', [id]);
-
-    if (result.rows.length === 0) {
+    
+    // Get team member to delete associated image
+    const member = await pool.query('SELECT image_url FROM team_members WHERE id = $1', [id]);
+    
+    if (member.rows.length === 0) {
       return res.status(404).json({ error: 'Team member not found' });
     }
+
+    // Delete associated image
+    if (member.rows[0].image_url) {
+      const filePath = getFilePathFromUrl(member.rows[0].image_url);
+      if (filePath) {
+        deleteFile(filePath);
+      }
+    }
+
+    // Delete from database
+    await pool.query('DELETE FROM team_members WHERE id = $1', [id]);
 
     res.json({ message: 'Team member deleted successfully' });
   } catch (error) {
@@ -92,4 +132,3 @@ router.delete('/:id', authMiddleware, async (req, res) => {
 });
 
 module.exports = router;
-
