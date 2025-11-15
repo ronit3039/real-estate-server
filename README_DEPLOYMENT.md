@@ -2,14 +2,87 @@
 
 This guide explains how to deploy the Real Estate Server after cloning the repository.
 
+## Prerequisites
+
+Before running the setup script, ensure you have the following installed:
+
+### 1. Node.js (v18 or higher)
+
+Check if Node.js is installed:
+```bash
+node --version
+```
+
+If not installed, install Node.js:
+```bash
+# Using NodeSource (Ubuntu/Debian)
+curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+sudo apt-get install -y nodejs
+
+# Or using nvm
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash
+nvm install 18
+```
+
+### 2. PostgreSQL
+
+Check if PostgreSQL is installed:
+```bash
+psql --version
+```
+
+If not installed, install PostgreSQL:
+
+**Ubuntu/Debian:**
+```bash
+sudo apt update
+sudo apt install postgresql postgresql-contrib -y
+sudo systemctl start postgresql
+sudo systemctl enable postgresql
+```
+
+**CentOS/RHEL:**
+```bash
+sudo yum install postgresql-server postgresql-contrib -y
+sudo postgresql-setup initdb
+sudo systemctl start postgresql
+sudo systemctl enable postgresql
+```
+
+**Verify PostgreSQL is running:**
+```bash
+sudo systemctl status postgresql
+```
+
 ## Quick Start
 
 ### 1. Clone the Repository
 
+If `/var/www` requires sudo permissions, use one of these methods:
+
+**Option 1: Clone with sudo and fix ownership**
 ```bash
 cd /var/www
-git clone <your-repo-url> real-estate-crm
-cd real-estate-crm/real-estate-server
+sudo git clone https://github.com/ronit3039/real-estate-server.git real-estate-crm
+sudo chown -R $USER:$USER real-estate-crm
+cd real-estate-crm
+```
+
+**Option 2: Fix /var/www permissions first (if you have sudo access)**
+```bash
+sudo chown -R $USER:$USER /var/www
+cd /var/www
+git clone https://github.com/ronit3039/real-estate-server.git real-estate-crm
+cd real-estate-crm
+```
+
+**Option 3: Clone to home directory, then move**
+```bash
+cd ~
+git clone https://github.com/ronit3039/real-estate-server.git real-estate-crm
+sudo mv real-estate-crm /var/www/
+cd /var/www/real-estate-crm
+sudo chown -R $USER:$USER .
 ```
 
 ### 2. Run Automated Setup
@@ -32,21 +105,20 @@ The setup script will:
 
 ```bash
 chmod +x deploy.sh
-cd ..  # Go to project root (where ecosystem.config.js is)
-../real-estate-server/deploy.sh start
+./deploy.sh start
 ```
 
 Or manually:
 ```bash
 cd /var/www/real-estate-crm
-pm2 start ecosystem.config.js
+pm2 start server.js --name real-estate-server
 pm2 save
 ```
 
 ### 4. Set Up Auto-Start (Optional)
 
 ```bash
-cd /var/www/real-estate-crm/real-estate-server
+cd /var/www/real-estate-crm
 ./deploy.sh autostart
 # Follow the instructions to run the sudo command
 ```
@@ -82,7 +154,7 @@ If you prefer to deploy manually:
 ### 1. Install Dependencies
 
 ```bash
-cd /var/www/real-estate-crm/real-estate-server
+cd /var/www/real-estate-crm
 npm install --production
 ```
 
@@ -137,7 +209,7 @@ chmod 775 uploads
 
 ```bash
 cd /var/www/real-estate-crm
-pm2 start ecosystem.config.js
+pm2 start server.js --name real-estate-server
 pm2 save
 pm2 startup  # Follow instructions
 ```
@@ -210,7 +282,7 @@ sudo chown -R $USER:$USER /var/www/real-estate-crm
 
 # Fix permissions
 chmod -R 755 /var/www/real-estate-crm
-chmod -R 775 /var/www/real-estate-crm/real-estate-server/uploads
+chmod -R 775 /var/www/real-estate-crm/uploads
 ```
 
 ## File Structure
@@ -248,12 +320,10 @@ cd /var/www/real-estate-crm
 git pull
 
 # Install new dependencies (if any)
-cd real-estate-server
 npm install --production
 
 # Restart server
-cd ..
-./real-estate-server/deploy.sh restart
+./deploy.sh restart
 ```
 
 ## Support
