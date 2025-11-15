@@ -13,9 +13,9 @@ RED='\033[0;31m'
 BLUE='\033[0;34m'
 NC='\033[0m'
 
-# Get script directory
+# Get script directory (this is the project root)
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+PROJECT_ROOT="$SCRIPT_DIR"
 
 # Check if PM2 is installed
 if ! command -v pm2 &> /dev/null; then
@@ -28,6 +28,9 @@ fi
 start_server() {
     echo -e "${BLUE}Starting Real Estate Server...${NC}"
     cd "$PROJECT_ROOT"
+    
+    # Create logs directory if it doesn't exist
+    mkdir -p logs
     
     # Check if ecosystem.config.js exists
     if [ ! -f "ecosystem.config.js" ]; then
