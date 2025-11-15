@@ -18,6 +18,8 @@ const storage = multer.diskStorage({
       uploadDir = 'uploads/content';
     } else if (req.baseUrl.includes('/stats')) {
       uploadDir = 'uploads/stats';
+    } else if (req.baseUrl.includes('/solutions')) {
+      uploadDir = 'uploads/solutions';
     }
     
     // Ensure directory exists

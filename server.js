@@ -14,6 +14,8 @@ const leadsRoutes = require('./routes/leads');
 const statsRoutes = require('./routes/stats');
 const contentRoutes = require('./routes/content');
 const bannersRoutes = require('./routes/banners');
+const catalogRoutes = require('./routes/catalog');
+const solutionsRoutes = require('./routes/solutions');
 
 const app = express();
 const PORT = process.env.PORT || 5001;
@@ -43,6 +45,8 @@ app.use('/api/leads', leadsRoutes);
 app.use('/api/stats', statsRoutes);
 app.use('/api/content', contentRoutes);
 app.use('/api/banners', bannersRoutes);
+app.use('/api/catalog', catalogRoutes);
+app.use('/api/solutions', solutionsRoutes);
 
 // Health check
 app.get('/health', (req, res) => {

@@ -155,6 +155,28 @@ const initDatabase = async () => {
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
 
+      -- Banner Items Table
+      CREATE TABLE IF NOT EXISTS banner_items (
+        id SERIAL PRIMARY KEY,
+        text VARCHAR(255) NOT NULL,
+        display_order INTEGER DEFAULT 0,
+        is_active BOOLEAN DEFAULT true,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+
+      -- Solutions Table (Tailored Solutions Section)
+      CREATE TABLE IF NOT EXISTS solutions (
+        id SERIAL PRIMARY KEY,
+        title VARCHAR(255) NOT NULL,
+        number VARCHAR(10),
+        image_url TEXT,
+        display_order INTEGER DEFAULT 0,
+        is_active BOOLEAN DEFAULT true,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+
       -- Create indexes for better performance
       CREATE INDEX IF NOT EXISTS idx_properties_type ON properties(type);
       CREATE INDEX IF NOT EXISTS idx_properties_status ON properties(status);
@@ -286,6 +308,24 @@ const initDatabase = async () => {
     }
 
     console.log('✓ FAQs inserted');
+
+    // Insert default solutions
+    const solutions = [
+      { title: 'Market Analysis', number: '04', display_order: 1 },
+      { title: 'Property Evaluation', number: '08', display_order: 2 },
+      { title: 'Architectural Design', number: '12', display_order: 3 },
+      { title: 'Luxury Pools', number: '16', display_order: 4 }
+    ];
+
+    for (const solution of solutions) {
+      await pool.query(`
+        INSERT INTO solutions (title, number, display_order)
+        VALUES ($1, $2, $3)
+        ON CONFLICT DO NOTHING
+      `, [solution.title, solution.number, solution.display_order]);
+    }
+
+    console.log('✓ Solutions inserted');
 
     console.log('\n✅ Database initialization completed successfully!\n');
     process.exit(0);

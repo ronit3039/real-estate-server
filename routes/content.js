@@ -39,6 +39,43 @@ router.get('/:key', async (req, res) => {
   }
 });
 
+// Create content section (protected)
+router.post('/', authMiddleware, async (req, res) => {
+  try {
+    const { section_key, title, subtitle, description, image_url, button_text, button_url, metadata, is_active } = req.body;
+
+    if (!section_key) {
+      return res.status(400).json({ error: 'Section key is required' });
+    }
+
+    const result = await pool.query(`
+      INSERT INTO content_sections (
+        section_key, title, subtitle, description, image_url, 
+        button_text, button_url, metadata, is_active
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+      RETURNING *
+    `, [
+      section_key, 
+      title || null, 
+      subtitle || null, 
+      description || null, 
+      image_url || null,
+      button_text || null, 
+      button_url || null, 
+      metadata || null, 
+      is_active !== undefined ? is_active : true
+    ]);
+
+    res.status(201).json(result.rows[0]);
+  } catch (error) {
+    console.error('Create content section error:', error);
+    if (error.code === '23505') { // Unique violation
+      return res.status(400).json({ error: 'Content section with this key already exists' });
+    }
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 // Upload content image
 router.post('/upload-image', authMiddleware, upload.single('image'), async (req, res) => {
   try {
