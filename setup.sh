@@ -61,3 +61,4 @@ EOF
     echo -e "${GREEN}✓ .env file created with URL-encoded password${NC}"
     echo -e "${YELLOW}⚠️  JWT_SECRET has been auto-generated. Keep it secure!${NC}"
 fi
+
