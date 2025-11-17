@@ -8,6 +8,9 @@ node_modules/
 .env.test
 .env.production
 
+# Build archives
+*.tar.gz
+
 # Logs
 logs
 *.log

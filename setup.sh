@@ -62,3 +62,5 @@ EOF
     echo -e "${YELLOW}⚠️  JWT_SECRET has been auto-generated. Keep it secure!${NC}"
 fi
 
+
+
